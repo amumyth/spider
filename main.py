@@ -2,7 +2,6 @@
 import requests, random, time, io, xlsxwriter
 from lxml import etree
 from retrying import retry
-from bs4 import BeautifulSoup
 from PIL import Image
 
 
@@ -37,7 +36,7 @@ def randHeader():
         'Accept': head_accept[0],
         'Accept-Language': head_accept_language[1],
         'User-Agent': head_user_agent[random.randrange(0, len(head_user_agent))],
-        'cookie': 'session-id=144-0875527-0711417; session-id-time=2082787201l; ubid-main=132-3065853-5842354; x-wl-uid=1AhLMZEinBycdlI1tlb7FGdiZPIkCHGrEaQZ6yUeZA8OsAwsAvKPjk32vn6UoYk55VGVQbNAVOZw=; session-token=YBj6Fu7RdQPKDU/pbF+Rktxm4E3qjlj9oZOAKYJ+XySzr3b+akT8LsFD1engX+6JSZ54VvFbO/5IpbL0IdqaHUqe4KGEA8lhzQr4hPQjgvRfqKChynb4LCdQpIhmh6EF+DASRUzov7LPrrkOLdQRHxkgGkl0J+ZvmpOQC+uhaMXqSuNIre9sD4OL57ERbwNBiPNDONFw+pSUnCITMnKI2y7p8fNOSG5IYIN2G2r/r9JskIt9CQBnXYlqHj+mP3jD; skin=noskin; csm-hit=tb:16WSW03D0ZQSSJJF4TX2+s-Q8BRSAJTA36T076TD2H1|1540822925084&adb:adblk_no'
+        'cookie': 'session-id=144-0875527-0711417; session-id-time=2082787201l; ubid-main=132-3065853-5842354; x-wl-uid=1AhLMZEinBycdlI1tlb7FGdiZPIkCHGrEaQZ6yUeZA8OsAwsAvKPjk32vn6UoYk55VGVQbNAVOZw=; session-token=YBj6Fu7RdQPKDU/pbF+Rktxm4E3qjlj9oZOAKYJ+XySzr3b+akT8LsFD1engX+6JSZ54VvFbO/5IpbL0IdqaHUqe4KGEA8lhzQr4hPQjgvRfqKChynb4LCdQpIhmh6EF+DASRUzov7LPrrkOLdQRHxkgGkl0J+ZvmpOQC+uhaMXqSuNIre9sD4OL57ERbwNBiPNDONFw+pSUnCITMnKI2y7p8fNOSG5IYIN2G2r/r9JskIt9CQBnXYlqHj+mP3jD; lc-main=en_US; csm-hit=tb:s-29WDXRCAMXNRCPA3DNS7|1541419275777&adb:adblk_yes'
     }
     return header
 
@@ -67,8 +66,9 @@ class Amazon(object):
     @retry(stop_max_attempt_number=3)
     def _parse_url(self, url):
         r = requests.get(url, headers=randHeader(),timeout=3)
+        print(r.status_code)
         assert r.status_code == 200
-        return r.text
+        return r
 
     def parse_url(self, url):
         try:
@@ -77,20 +77,36 @@ class Amazon(object):
             html = None
         return html
 
-    def parse_html(self, html):
-        soup =  BeautifulSoup(html)
-        result = soup.find_all('div', className='a-section aok-relative s-image-fixed-height')
+    def find_product_node(self, html, number):
+        root = etree.HTML(html.content)
+        path = '//li[@data-result-rank="%s"]' % number
+        print(path)
+        result = root.xpath(path)
+        print(result[0].xpath('.//@data-result-rank'))
+        product_price = result[0].xpath('.//span[@class="a-offscreen"]/text()')
+        print(product_price)
+        product_title = result[0].xpath('.//a[@class="a-link-normal s-access-detail-page  s-color-twister-title-link a-text-normal"]/@title')
+        print(product_title)
+        product_reviews = result[0].xpath('.//div[@class="a-row a-spacing-none"]/a[@class="a-size-small a-link-normal a-text-normal"]/text()')
+        print(product_reviews)
+        product_img = result[0].xpath('.//div[@class="s-card s-card-group-rot-B01NAJGGA2 s-active"]/img/@src')
+        print(product_img)
+        return 'OK'
 
     def go(self):
         for i in range(self.search_count):
-            time.sleep(2)
             url = self.get_Product_URL_By_Page_Number(i + 1)
+            print('url: ' + url)
             html = self.parse_url(url)
-            #self.parse_html(html)
-            f = open('G://amazon.html', 'w', encoding='utf-8')
-            f.write(html)
-            f.close()
-            print(url)
+            if html == None:
+                print('parse url error')
+                return
+            txt = self.find_product_node(html , i)
+            #f = open('G://amazon_items_%s.html' % i, 'w', encoding='utf-8')
+            #f.write(txt)
+            #f.close()
+            #print(txt)
+            time.sleep(2)
 
 if __name__ == '__main__':
     count = 1 # how many pages you wanna to seach
